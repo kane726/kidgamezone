@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kid Game Zone</title>
+<!-- Memory update v4: countdown overlay fixed, hard no peek, JS banner removed, difficulty change clears board -->
 <style>
   :root {
     --purple: #6c63ff;
@@ -194,32 +195,38 @@
     margin: 0 auto;
   }
 
+  #memoryBoard {
+    position: relative;
+    z-index: 1;
+  }
+
   .memory-countdown {
     display: none;
     position: absolute;
     inset: 0;
-    z-index: 5;
+    z-index: 999;
     pointer-events: none;
     align-items: center;
     justify-content: center;
+    background: rgba(255, 247, 214, 0.18);
   }
 
   .memory-countdown.show {
-    display: flex;
+    display: flex !important;
   }
 
   .memory-countdown span {
-    width: clamp(82px, 24vw, 140px);
-    height: clamp(82px, 24vw, 140px);
+    width: clamp(95px, 26vw, 155px);
+    height: clamp(95px, 26vw, 155px);
     border-radius: 999px;
     display: grid;
     place-items: center;
-    background: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.94);
     color: #5148d8;
-    font-size: clamp(3rem, 16vw, 6rem);
+    font-size: clamp(3.4rem, 17vw, 6.4rem);
     font-weight: 900;
-    border: 6px solid #ffd43b;
-    box-shadow: 0 10px 24px rgba(0,0,0,.22);
+    border: 7px solid #ffd43b;
+    box-shadow: 0 12px 28px rgba(0,0,0,.28);
   }
 
   /* Crossword */
@@ -394,7 +401,6 @@
   <header>
     <h1>🎮 Kid Game Zone</h1>
     <p>Memory, Crossword Puzzle, and Hangman for 2nd and 3rd graders</p>
-    <div id="jsCheck" class="js-check">JavaScript is not running yet</div>
   </header>
 
   <div class="tabs">
@@ -411,7 +417,7 @@
       </div>
       <div class="controls">
         <label>Difficulty
-          <select id="memoryDifficulty">
+          <select id="memoryDifficulty" onchange="resetMemory()">
             <option value="easy">Easy</option>
             <option value="medium" selected>Medium</option>
             <option value="hard">Hard</option>
@@ -423,10 +429,10 @@
     </div>
     <div id="memoryStatus" class="status">Press Play to start.</div>
     <div class="memory-wrap">
+      <div id="memoryBoard"></div>
       <div id="memoryCountdown" class="memory-countdown" aria-live="polite">
         <span id="memoryCountdownNumber"></span>
       </div>
-      <div id="memoryBoard"></div>
     </div>
   </section>
 
@@ -575,6 +581,11 @@ function startMemory() {
   }
   hideMemoryCountdown();
 
+  var board = getEl("memoryBoard");
+  if (board) {
+    board.innerHTML = "";
+  }
+
   var difficulty = getEl("memoryDifficulty").value;
   var emojis = memoryEmojiSets[difficulty];
   var doubled = emojis.concat(emojis);
@@ -584,7 +595,7 @@ function startMemory() {
   for (var i = 0; i < mixed.length; i++) {
     memoryCards.push({
       emoji: mixed[i],
-      showing: difficulty !== "hard",
+      showing: false,
       matched: false
     });
   }
@@ -599,6 +610,10 @@ function startMemory() {
     renderMemory();
     getEl("memoryStatus").innerHTML = "Hard mode: no peek. Go find the matches! Moves: 0 | Matches: 0/10";
     return;
+  }
+
+  for (var j = 0; j < memoryCards.length; j++) {
+    memoryCards[j].showing = true;
   }
 
   memoryLocked = true;
@@ -619,8 +634,8 @@ function startMemory() {
   }, 1000);
 
   memoryTimer = setTimeout(function() {
-    for (var i = 0; i < memoryCards.length; i++) {
-      memoryCards[i].showing = false;
+    for (var k = 0; k < memoryCards.length; k++) {
+      memoryCards[k].showing = false;
     }
     memoryLocked = false;
     hideMemoryCountdown();
@@ -634,6 +649,7 @@ function showMemoryCountdown(number) {
   var numberBox = getEl("memoryCountdownNumber");
   if (!overlay || !numberBox) return;
   numberBox.innerHTML = number;
+  overlay.style.display = "flex";
   overlay.className = "memory-countdown show";
 }
 
@@ -642,6 +658,7 @@ function hideMemoryCountdown() {
   var numberBox = getEl("memoryCountdownNumber");
   if (!overlay || !numberBox) return;
   numberBox.innerHTML = "";
+  overlay.style.display = "none";
   overlay.className = "memory-countdown";
 }
 
@@ -1089,9 +1106,6 @@ function renderDrawing() {
 
 /* Startup */
 function initApp() {
-  var check = getEl("jsCheck");
-  check.innerHTML = "JavaScript is running. Ready to play.";
-  check.className = "js-check ready";
 
   renderCrossword(false);
   renderClues();
