@@ -187,6 +187,41 @@
     cursor: not-allowed;
   }
 
+
+  .memory-wrap {
+    position: relative;
+    max-width: 650px;
+    margin: 0 auto;
+  }
+
+  .memory-countdown {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .memory-countdown.show {
+    display: flex;
+  }
+
+  .memory-countdown span {
+    width: clamp(82px, 24vw, 140px);
+    height: clamp(82px, 24vw, 140px);
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.88);
+    color: #5148d8;
+    font-size: clamp(3rem, 16vw, 6rem);
+    font-weight: 900;
+    border: 6px solid #ffd43b;
+    box-shadow: 0 10px 24px rgba(0,0,0,.22);
+  }
+
   /* Crossword */
   .crossword-layout {
     display: grid;
@@ -387,7 +422,12 @@
       </div>
     </div>
     <div id="memoryStatus" class="status">Press Play to start.</div>
-    <div id="memoryBoard"></div>
+    <div class="memory-wrap">
+      <div id="memoryCountdown" class="memory-countdown" aria-live="polite">
+        <span id="memoryCountdownNumber"></span>
+      </div>
+      <div id="memoryBoard"></div>
+    </div>
   </section>
 
   <section id="crossword" class="panel">
@@ -523,13 +563,17 @@ var memoryEmojiSets = {
 };
 
 var memoryPeek = {
-  easy: 8000,
-  medium: 5000,
-  hard: 3000
+  easy: 5000,
+  medium: 3000,
+  hard: 0
 };
 
 function startMemory() {
   clearTimeout(memoryTimer);
+  if (window.memoryCountdownTimer) {
+    clearInterval(window.memoryCountdownTimer);
+  }
+  hideMemoryCountdown();
 
   var difficulty = getEl("memoryDifficulty").value;
   var emojis = memoryEmojiSets[difficulty];
@@ -540,32 +584,73 @@ function startMemory() {
   for (var i = 0; i < mixed.length; i++) {
     memoryCards.push({
       emoji: mixed[i],
-      showing: true,
+      showing: difficulty !== "hard",
       matched: false
     });
   }
 
   memoryFirst = -1;
   memorySecond = -1;
-  memoryLocked = true;
   memoryMoves = 0;
   memoryMatches = 0;
 
+  if (difficulty === "hard") {
+    memoryLocked = false;
+    renderMemory();
+    getEl("memoryStatus").innerHTML = "Hard mode: no peek. Go find the matches! Moves: 0 | Matches: 0/10";
+    return;
+  }
+
+  memoryLocked = true;
   renderMemory();
-  getEl("memoryStatus").innerHTML = "Peek at the emojis, then they will hide. Moves: 0 | Matches: 0/10";
+
+  var totalSeconds = Math.ceil(memoryPeek[difficulty] / 1000);
+  showMemoryCountdown(totalSeconds);
+
+  getEl("memoryStatus").innerHTML = "Peek at the emojis. They will hide when the countdown ends. Moves: 0 | Matches: 0/10";
+
+  window.memoryCountdownTimer = setInterval(function() {
+    totalSeconds--;
+    if (totalSeconds > 0) {
+      showMemoryCountdown(totalSeconds);
+    } else {
+      clearInterval(window.memoryCountdownTimer);
+    }
+  }, 1000);
 
   memoryTimer = setTimeout(function() {
     for (var i = 0; i < memoryCards.length; i++) {
       memoryCards[i].showing = false;
     }
     memoryLocked = false;
+    hideMemoryCountdown();
     renderMemory();
     getEl("memoryStatus").innerHTML = "Go find the matches! Moves: 0 | Matches: 0/10";
   }, memoryPeek[difficulty]);
 }
 
+function showMemoryCountdown(number) {
+  var overlay = getEl("memoryCountdown");
+  var numberBox = getEl("memoryCountdownNumber");
+  if (!overlay || !numberBox) return;
+  numberBox.innerHTML = number;
+  overlay.className = "memory-countdown show";
+}
+
+function hideMemoryCountdown() {
+  var overlay = getEl("memoryCountdown");
+  var numberBox = getEl("memoryCountdownNumber");
+  if (!overlay || !numberBox) return;
+  numberBox.innerHTML = "";
+  overlay.className = "memory-countdown";
+}
+
 function resetMemory() {
   clearTimeout(memoryTimer);
+  if (window.memoryCountdownTimer) {
+    clearInterval(window.memoryCountdownTimer);
+  }
+  hideMemoryCountdown();
   memoryCards = [];
   memoryFirst = -1;
   memorySecond = -1;
