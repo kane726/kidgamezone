@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kid Game Zone</title>
-<!-- Memory update v4: countdown overlay fixed, hard no peek, JS banner removed, difficulty change clears board -->
+<!-- Crossword update v2: continuous typing, hint, reveal clue, reveal puzzle -->
 <style>
   :root {
     --purple: #6c63ff;
@@ -230,533 +230,6 @@
   }
 
   /* Crossword */
-  .crossword-layout {
-    display: grid;
-    grid-template-columns: minmax(260px, 420px) 1fr;
-    gap: 18px;
-    align-items: start;
-  }
-
-  #crosswordBoard {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 4px;
-    background: var(--dark);
-    padding: 4px;
-    border-radius: 12px;
-    max-width: 420px;
-    width: 100%;
-    margin: 0 auto;
-  }
-
-  .black, .white {
-    aspect-ratio: 1 / 1;
-    border-radius: 7px;
-  }
-
-  .black { background: var(--dark); }
-
-  .white {
-    background: #fffef5;
-    position: relative;
-  }
-
-  .white.correct { background: #d3f9d8; }
-  .white.wrong { background: #ffe3e3; }
-
-  .num {
-    position: absolute;
-    top: 2px;
-    left: 4px;
-    font-size: .65rem;
-    font-weight: 900;
-    color: var(--purple);
-  }
-
-  .cw-input {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: transparent;
-    text-align: center;
-    text-transform: uppercase;
-    font-size: clamp(1.05rem, 5vw, 1.7rem);
-    font-weight: 900;
-    padding-top: 10px;
-    outline: none;
-  }
-
-  .clues {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .clue-box {
-    background: white;
-    border-radius: 18px;
-    padding: 12px;
-    box-shadow: 0 5px 12px rgba(0,0,0,.1);
-  }
-
-  .clue-box h3 {
-    margin: 0 0 8px;
-    color: var(--purple);
-  }
-
-  .clue-box li {
-    margin: 8px 0;
-  }
-
-  /* Hangman */
-  .hangman-layout {
-    display: grid;
-    grid-template-columns: minmax(260px, 360px) 1fr;
-    gap: 18px;
-    align-items: start;
-  }
-
-  .hangman-card, #keyboard {
-    background: white;
-    border-radius: 18px;
-    padding: 14px;
-    box-shadow: 0 5px 12px rgba(0,0,0,.1);
-    text-align: center;
-  }
-
-  svg { max-width: 300px; width: 100%; height: 260px; }
-
-  .hidden-part { visibility: hidden; }
-
-  #wordDisplay {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin: 14px 0;
-  }
-
-  .slot {
-    min-width: 32px;
-    height: 42px;
-    border-bottom: 4px solid var(--purple);
-    display: grid;
-    place-items: center;
-    font-size: 1.7rem;
-    font-weight: 900;
-  }
-
-  .space {
-    width: 18px;
-    height: 42px;
-  }
-
-  .hint {
-    background: #f3f0ff;
-    border: 2px solid #ded6ff;
-    color: #5148d8;
-    border-radius: 16px;
-    padding: 10px;
-    font-weight: 900;
-  }
-
-  #keyboard {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .key {
-    border: 0;
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: #fff3bf;
-    color: #7a5200;
-    font-size: 1.1rem;
-    font-weight: 900;
-    cursor: pointer;
-  }
-
-  .key.good { background: #d3f9d8; color: #1b7f4b; }
-  .key.bad { background: #ffe3e3; color: #c92a2a; }
-
-  @media (max-width: 850px) {
-    .crossword-layout, .hangman-layout { grid-template-columns: 1fr; }
-    .clues { grid-template-columns: 1fr; }
-  }
-
-  @media (max-width: 520px) {
-    .app { padding: 10px; }
-    h1 { font-size: 2rem; }
-    .panel { padding: 12px; }
-    #memoryBoard { gap: 7px; }
-    .key { width: 36px; height: 38px; }
-  }
-</style>
-</head>
-<body>
-<div class="app">
-  <header>
-    <h1>🎮 Kid Game Zone</h1>
-    <p>Memory, Crossword Puzzle, and Hangman for 2nd and 3rd graders</p>
-  </header>
-
-  <div class="tabs">
-    <button type="button" id="tabMemory" class="tab active" onclick="showTab('memory')">🧠 Memory</button>
-    <button type="button" id="tabCrossword" class="tab" onclick="showTab('crossword')">✏️ Crossword</button>
-    <button type="button" id="tabHangman" class="tab" onclick="showTab('hangman')">🔤 Hangman</button>
-  </div>
-
-  <section id="memory" class="panel active">
-    <div class="game-top">
-      <div>
-        <h2>Emoji Memory</h2>
-        <div>Find all 10 matching pairs on the 5x4 board.</div>
-      </div>
-      <div class="controls">
-        <label>Difficulty
-          <select id="memoryDifficulty" onchange="resetMemory()">
-            <option value="easy">Easy</option>
-            <option value="medium" selected>Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-        </label>
-        <button type="button" class="play" onclick="startMemory()">Play</button>
-        <button type="button" class="reset" onclick="resetMemory()">Reset</button>
-      </div>
-    </div>
-    <div id="memoryStatus" class="status">Press Play to start.</div>
-    <div class="memory-wrap">
-      <div id="memoryBoard"></div>
-      <div id="memoryCountdown" class="memory-countdown" aria-live="polite">
-        <span id="memoryCountdownNumber"></span>
-      </div>
-    </div>
-  </section>
-
-  <section id="crossword" class="panel">
-    <div class="game-top">
-      <div>
-        <h2>8x8 Crossword Puzzle</h2>
-        <div>Fill in the white boxes using the clues.</div>
-      </div>
-      <div class="controls">
-        <label>Difficulty
-          <select id="crosswordDifficulty" onchange="renderClues()">
-            <option value="easy">Easy clues</option>
-            <option value="medium" selected>Medium clues</option>
-            <option value="hard">Hard clues</option>
-          </select>
-        </label>
-        <button type="button" class="play" onclick="startCrossword()">Play</button>
-        <button type="button" class="reset" onclick="resetCrossword()">Reset</button>
-      </div>
-    </div>
-    <div id="crosswordStatus" class="status">Press Play to start.</div>
-    <div class="crossword-layout">
-      <div id="crosswordBoard"></div>
-      <div class="clues">
-        <div class="clue-box">
-          <h3>Across</h3>
-          <ol id="acrossClues"></ol>
-        </div>
-        <div class="clue-box">
-          <h3>Down</h3>
-          <ol id="downClues"></ol>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="hangman" class="panel">
-    <div class="game-top">
-      <div>
-        <h2>Hangman</h2>
-        <div>Guess a kid-friendly word before the drawing is finished.</div>
-      </div>
-      <div class="controls">
-        <label>Difficulty
-          <select id="hangmanDifficulty">
-            <option value="easy">Easy</option>
-            <option value="medium" selected>Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-        </label>
-        <label>Word Type
-          <select id="hangmanCategory">
-            <option value="mixed" selected>Mixed</option>
-            <option value="animals">Animals</option>
-            <option value="school">School</option>
-            <option value="magic">Magic/Adventure</option>
-            <option value="sports">Sports</option>
-          </select>
-        </label>
-        <button type="button" class="play" onclick="startHangman()">Play</button>
-        <button type="button" class="reset" onclick="resetHangman()">Reset</button>
-      </div>
-    </div>
-    <div id="hangmanStatus" class="status">Press Play to start.</div>
-    <div class="hangman-layout">
-      <div class="hangman-card">
-        <svg viewBox="0 0 260 260" aria-label="Hangman drawing">
-          <line x1="35" y1="235" x2="225" y2="235" stroke="#263238" stroke-width="8" stroke-linecap="round"></line>
-          <line x1="70" y1="235" x2="70" y2="35" stroke="#263238" stroke-width="8" stroke-linecap="round"></line>
-          <line x1="70" y1="35" x2="170" y2="35" stroke="#263238" stroke-width="8" stroke-linecap="round"></line>
-          <line x1="170" y1="35" x2="170" y2="62" stroke="#263238" stroke-width="5" stroke-linecap="round"></line>
-          <circle id="part1" class="hidden-part" cx="170" cy="82" r="20" fill="none" stroke="#6c63ff" stroke-width="6"></circle>
-          <line id="part2" class="hidden-part" x1="170" y1="103" x2="170" y2="158" stroke="#6c63ff" stroke-width="6" stroke-linecap="round"></line>
-          <line id="part3" class="hidden-part" x1="170" y1="118" x2="137" y2="140" stroke="#6c63ff" stroke-width="6" stroke-linecap="round"></line>
-          <line id="part4" class="hidden-part" x1="170" y1="118" x2="203" y2="140" stroke="#6c63ff" stroke-width="6" stroke-linecap="round"></line>
-          <line id="part5" class="hidden-part" x1="170" y1="158" x2="145" y2="200" stroke="#6c63ff" stroke-width="6" stroke-linecap="round"></line>
-          <line id="part6" class="hidden-part" x1="170" y1="158" x2="195" y2="200" stroke="#6c63ff" stroke-width="6" stroke-linecap="round"></line>
-        </svg>
-        <div id="hangmanHint" class="hint">Hint will show here.</div>
-        <div id="wordDisplay"></div>
-      </div>
-      <div id="keyboard"></div>
-    </div>
-  </section>
-</div>
-
-<script>
-/* Simple, compatibility-focused JavaScript. */
-
-function getEl(id) {
-  return document.getElementById(id);
-}
-
-function showTab(name) {
-  getEl("memory").className = "panel";
-  getEl("crossword").className = "panel";
-  getEl("hangman").className = "panel";
-  getEl(name).className = "panel active";
-
-  getEl("tabMemory").className = "tab";
-  getEl("tabCrossword").className = "tab";
-  getEl("tabHangman").className = "tab";
-
-  if (name === "memory") getEl("tabMemory").className = "tab active";
-  if (name === "crossword") getEl("tabCrossword").className = "tab active";
-  if (name === "hangman") getEl("tabHangman").className = "tab active";
-}
-
-function shuffle(arr) {
-  var copy = arr.slice();
-  for (var i = copy.length - 1; i > 0; i--) {
-    var j = Math.floor(Math.random() * (i + 1));
-    var temp = copy[i];
-    copy[i] = copy[j];
-    copy[j] = temp;
-  }
-  return copy;
-}
-
-/* Memory game */
-var memoryCards = [];
-var memoryFirst = -1;
-var memorySecond = -1;
-var memoryLocked = false;
-var memoryMoves = 0;
-var memoryMatches = 0;
-var memoryTimer = null;
-
-var memoryEmojiSets = {
-  easy: ["🐶","🐱","🐸","🦁","🐼","🐢","🐙","🦋","🐠","🐵"],
-  medium: ["🍎","🍌","🍕","⚽","🚀","⭐","🎈","🎲","🎸","📚"],
-  hard: ["😀","😃","😄","😁","😆","😊","😎","😍","🤩","🥳"]
-};
-
-var memoryPeek = {
-  easy: 5000,
-  medium: 3000,
-  hard: 0
-};
-
-function startMemory() {
-  clearTimeout(memoryTimer);
-  if (window.memoryCountdownTimer) {
-    clearInterval(window.memoryCountdownTimer);
-  }
-  hideMemoryCountdown();
-
-  var board = getEl("memoryBoard");
-  if (board) {
-    board.innerHTML = "";
-  }
-
-  var difficulty = getEl("memoryDifficulty").value;
-  var emojis = memoryEmojiSets[difficulty];
-  var doubled = emojis.concat(emojis);
-  var mixed = shuffle(doubled);
-
-  memoryCards = [];
-  for (var i = 0; i < mixed.length; i++) {
-    memoryCards.push({
-      emoji: mixed[i],
-      showing: false,
-      matched: false
-    });
-  }
-
-  memoryFirst = -1;
-  memorySecond = -1;
-  memoryMoves = 0;
-  memoryMatches = 0;
-
-  if (difficulty === "hard") {
-    memoryLocked = false;
-    renderMemory();
-    getEl("memoryStatus").innerHTML = "Hard mode: no peek. Go find the matches! Moves: 0 | Matches: 0/10";
-    return;
-  }
-
-  for (var j = 0; j < memoryCards.length; j++) {
-    memoryCards[j].showing = true;
-  }
-
-  memoryLocked = true;
-  renderMemory();
-
-  var totalSeconds = Math.ceil(memoryPeek[difficulty] / 1000);
-  showMemoryCountdown(totalSeconds);
-
-  getEl("memoryStatus").innerHTML = "Peek at the emojis. They will hide when the countdown ends. Moves: 0 | Matches: 0/10";
-
-  window.memoryCountdownTimer = setInterval(function() {
-    totalSeconds--;
-    if (totalSeconds > 0) {
-      showMemoryCountdown(totalSeconds);
-    } else {
-      clearInterval(window.memoryCountdownTimer);
-    }
-  }, 1000);
-
-  memoryTimer = setTimeout(function() {
-    for (var k = 0; k < memoryCards.length; k++) {
-      memoryCards[k].showing = false;
-    }
-    memoryLocked = false;
-    hideMemoryCountdown();
-    renderMemory();
-    getEl("memoryStatus").innerHTML = "Go find the matches! Moves: 0 | Matches: 0/10";
-  }, memoryPeek[difficulty]);
-}
-
-function showMemoryCountdown(number) {
-  var overlay = getEl("memoryCountdown");
-  var numberBox = getEl("memoryCountdownNumber");
-  if (!overlay || !numberBox) return;
-  numberBox.innerHTML = number;
-  overlay.style.display = "flex";
-  overlay.className = "memory-countdown show";
-}
-
-function hideMemoryCountdown() {
-  var overlay = getEl("memoryCountdown");
-  var numberBox = getEl("memoryCountdownNumber");
-  if (!overlay || !numberBox) return;
-  numberBox.innerHTML = "";
-  overlay.style.display = "none";
-  overlay.className = "memory-countdown";
-}
-
-function resetMemory() {
-  clearTimeout(memoryTimer);
-  if (window.memoryCountdownTimer) {
-    clearInterval(window.memoryCountdownTimer);
-  }
-  hideMemoryCountdown();
-  memoryCards = [];
-  memoryFirst = -1;
-  memorySecond = -1;
-  memoryLocked = false;
-  memoryMoves = 0;
-  memoryMatches = 0;
-  getEl("memoryBoard").innerHTML = "";
-  getEl("memoryStatus").innerHTML = "Press Play to start.";
-}
-
-function renderMemory() {
-  var board = getEl("memoryBoard");
-  board.innerHTML = "";
-
-  for (var i = 0; i < memoryCards.length; i++) {
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "memory-card";
-    btn.setAttribute("data-index", i);
-
-    if (memoryCards[i].showing || memoryCards[i].matched) {
-      btn.innerHTML = memoryCards[i].emoji;
-      btn.className += " showing";
-    } else {
-      btn.innerHTML = "❓";
-    }
-
-    if (memoryCards[i].matched) {
-      btn.className += " matched";
-    }
-
-    if (memoryLocked || memoryCards[i].showing || memoryCards[i].matched) {
-      btn.disabled = true;
-    }
-
-    btn.onclick = function() {
-      flipMemoryCard(parseInt(this.getAttribute("data-index"), 10));
-    };
-
-    board.appendChild(btn);
-  }
-}
-
-function flipMemoryCard(index) {
-  if (memoryLocked) return;
-  if (!memoryCards[index]) return;
-  if (memoryCards[index].showing || memoryCards[index].matched) return;
-
-  memoryCards[index].showing = true;
-
-  if (memoryFirst === -1) {
-    memoryFirst = index;
-    renderMemory();
-    return;
-  }
-
-  memorySecond = index;
-  memoryMoves++;
-  memoryLocked = true;
-  renderMemory();
-
-  if (memoryCards[memoryFirst].emoji === memoryCards[memorySecond].emoji) {
-    memoryCards[memoryFirst].matched = true;
-    memoryCards[memorySecond].matched = true;
-    memoryMatches++;
-    memoryFirst = -1;
-    memorySecond = -1;
-    memoryLocked = false;
-    renderMemory();
-
-    if (memoryMatches === 10) {
-      getEl("memoryStatus").innerHTML = "🎉 You found every match! Moves: " + memoryMoves + " | Matches: 10/10";
-    } else {
-      getEl("memoryStatus").innerHTML = "Nice match! Moves: " + memoryMoves + " | Matches: " + memoryMatches + "/10";
-    }
-  } else {
-    getEl("memoryStatus").innerHTML = "Try again! Moves: " + memoryMoves + " | Matches: " + memoryMatches + "/10";
-    setTimeout(function() {
-      memoryCards[memoryFirst].showing = false;
-      memoryCards[memorySecond].showing = false;
-      memoryFirst = -1;
-      memorySecond = -1;
-      memoryLocked = false;
-      renderMemory();
-    }, 800);
-  }
-}
-
-/* Crossword */
 var cwRows = [
   "MATH#PIG",
   "I##E#E##",
@@ -792,13 +265,36 @@ var cwDown = [
   [7, { easy: "A big vehicle that takes kids to school.", medium: "A vehicle many students ride.", hard: "Public transportation with many seats." }]
 ];
 
+var cwEntries = [
+  { number: 1, direction: "across", answer: "MATH", cells: [[0,0],[0,1],[0,2],[0,3]] },
+  { number: 3, direction: "across", answer: "PIG", cells: [[0,5],[0,6],[0,7]] },
+  { number: 4, direction: "across", answer: "LION", cells: [[2,0],[2,1],[2,2],[2,3]] },
+  { number: 5, direction: "across", answer: "NET", cells: [[2,5],[2,6],[2,7]] },
+  { number: 6, direction: "across", answer: "FROG", cells: [[4,0],[4,1],[4,2],[4,3]] },
+  { number: 7, direction: "across", answer: "BED", cells: [[4,5],[4,6],[4,7]] },
+  { number: 8, direction: "across", answer: "STAR", cells: [[6,0],[6,1],[6,2],[6,3]] },
+  { number: 9, direction: "across", answer: "SEA", cells: [[6,5],[6,6],[6,7]] },
+  { number: 1, direction: "down", answer: "MILK", cells: [[0,0],[1,0],[2,0],[3,0]] },
+  { number: 2, direction: "down", answer: "HEN", cells: [[0,3],[1,3],[2,3]] },
+  { number: 3, direction: "down", answer: "PEN", cells: [[0,5],[1,5],[2,5]] },
+  { number: 6, direction: "down", answer: "FISH", cells: [[4,0],[5,0],[6,0],[7,0]] },
+  { number: 7, direction: "down", answer: "BUS", cells: [[4,5],[5,5],[6,5]] }
+];
+
+var cwEnabled = false;
+var activeCwEntry = null;
+
 function startCrossword() {
+  cwEnabled = true;
+  activeCwEntry = null;
   renderCrossword(true);
   renderClues();
-  getEl("crosswordStatus").innerHTML = "Fill all the white boxes. The puzzle checks itself when done.";
+  getEl("crosswordStatus").innerHTML = "Click a clue, then type the answer. Letters will move through that clue automatically.";
 }
 
 function resetCrossword() {
+  cwEnabled = false;
+  activeCwEntry = null;
   renderCrossword(false);
   renderClues();
   getEl("crosswordStatus").innerHTML = "Press Play to start.";
@@ -819,6 +315,8 @@ function renderCrossword(enabled) {
       } else {
         var cell = document.createElement("div");
         cell.className = "white";
+        cell.setAttribute("data-row", r);
+        cell.setAttribute("data-col", c);
 
         var number = cwNumbers[r + "-" + c];
         if (number) {
@@ -832,11 +330,78 @@ function renderCrossword(enabled) {
         input.className = "cw-input";
         input.maxLength = 1;
         input.disabled = !enabled;
+        input.autocapitalize = "characters";
+        input.autocomplete = "off";
+        input.autocorrect = "off";
+        input.spellcheck = false;
+        input.setAttribute("inputmode", "text");
         input.setAttribute("data-answer", letter);
+        input.setAttribute("data-row", r);
+        input.setAttribute("data-col", c);
+
+        input.onclick = function() {
+          var found = findBestEntryForCell(this.getAttribute("data-row"), this.getAttribute("data-col"));
+          if (found) {
+            selectCwEntry(found.direction, found.number, false);
+          }
+        };
+
+        input.onkeydown = function(event) {
+          if (!cwEnabled) return;
+
+          if (!activeCwEntry) {
+            var found = findBestEntryForCell(this.getAttribute("data-row"), this.getAttribute("data-col"));
+            if (found) selectCwEntry(found.direction, found.number, false);
+          }
+
+          if (event.key === "Backspace") {
+            if (this.value !== "") {
+              this.value = "";
+              event.preventDefault();
+              checkCrossword(false);
+              return;
+            }
+
+            var previous = getPreviousCwInput(this);
+            if (previous) {
+              event.preventDefault();
+              previous.focus();
+              previous.value = "";
+              checkCrossword(false);
+            }
+            return;
+          }
+
+          if (event.key && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
+            event.preventDefault();
+            this.value = event.key.toUpperCase();
+            this.parentNode.className = this.parentNode.className.replace(" correct", "").replace(" wrong", "");
+            moveToNextCwCell(this);
+            checkCrossword(false);
+          }
+        };
+
         input.oninput = function() {
-          this.value = this.value.replace(/[^a-zA-Z]/g, "").toUpperCase();
-          this.parentNode.className = "white";
-          checkCrossword();
+          if (!cwEnabled) return;
+
+          var value = this.value.replace(/[^a-zA-Z]/g, "").toUpperCase();
+          this.value = value.slice(-1);
+
+          this.parentNode.className = this.parentNode.className.replace(" correct", "").replace(" wrong", "");
+
+          if (!activeCwEntry) {
+            var found = findBestEntryForCell(this.getAttribute("data-row"), this.getAttribute("data-col"));
+            if (found) selectCwEntry(found.direction, found.number, false);
+          }
+
+          if (this.value.length === 1) {
+            var current = this;
+            setTimeout(function() {
+              moveToNextCwCell(current);
+            }, 0);
+          }
+
+          checkCrossword(false);
         };
 
         cell.appendChild(input);
@@ -857,6 +422,11 @@ function renderClues() {
     var li = document.createElement("li");
     li.value = cwAcross[i][0];
     li.innerHTML = cwAcross[i][1][level];
+    li.setAttribute("data-number", cwAcross[i][0]);
+    li.setAttribute("data-direction", "across");
+    li.onclick = function() {
+      selectCwEntry(this.getAttribute("data-direction"), parseInt(this.getAttribute("data-number"), 10), true);
+    };
     across.appendChild(li);
   }
 
@@ -864,11 +434,250 @@ function renderClues() {
     var li2 = document.createElement("li");
     li2.value = cwDown[j][0];
     li2.innerHTML = cwDown[j][1][level];
+    li2.setAttribute("data-number", cwDown[j][0]);
+    li2.setAttribute("data-direction", "down");
+    li2.onclick = function() {
+      selectCwEntry(this.getAttribute("data-direction"), parseInt(this.getAttribute("data-number"), 10), true);
+    };
     down.appendChild(li2);
+  }
+
+  if (activeCwEntry) {
+    markActiveClue();
   }
 }
 
-function checkCrossword() {
+function getCwEntry(direction, number) {
+  for (var i = 0; i < cwEntries.length; i++) {
+    if (cwEntries[i].direction === direction && cwEntries[i].number === number) {
+      return cwEntries[i];
+    }
+  }
+  return null;
+}
+
+function selectCwEntry(direction, number, showMessage) {
+  if (!cwEnabled) {
+    cwEnabled = true;
+    renderCrossword(true);
+    renderClues();
+  }
+
+  var entry = getCwEntry(direction, number);
+  if (!entry) return;
+
+  activeCwEntry = entry;
+  clearCwHighlights();
+  markActiveClue();
+
+  for (var i = 0; i < entry.cells.length; i++) {
+    var cell = getCwCell(entry.cells[i][0], entry.cells[i][1]);
+    if (cell && cell.className.indexOf("active") < 0) {
+      cell.className += " active";
+    }
+  }
+
+  var focusInput = getFirstEmptyInputForEntry(entry);
+  if (!focusInput) {
+    focusInput = getCwInput(entry.cells[0][0], entry.cells[0][1]);
+  }
+
+  if (focusInput) {
+    focusInput.focus();
+    try {
+      focusInput.setSelectionRange(0, focusInput.value.length);
+    } catch (e) {}
+  }
+
+  if (showMessage !== false) {
+    getEl("crosswordStatus").innerHTML = "Selected " + number + " " + direction + ". Type the answer continuously.";
+  }
+}
+
+function clearCwHighlights() {
+  var cells = document.getElementsByClassName("white");
+  for (var i = 0; i < cells.length; i++) {
+    cells[i].className = cells[i].className.replace(" active", "");
+  }
+
+  var clues = document.querySelectorAll(".clue-box li");
+  for (var j = 0; j < clues.length; j++) {
+    clues[j].className = clues[j].className.replace(" active-clue", "");
+  }
+}
+
+function markActiveClue() {
+  if (!activeCwEntry) return;
+
+  var clues = document.querySelectorAll(".clue-box li");
+  for (var i = 0; i < clues.length; i++) {
+    var direction = clues[i].getAttribute("data-direction");
+    var number = parseInt(clues[i].getAttribute("data-number"), 10);
+
+    if (direction === activeCwEntry.direction && number === activeCwEntry.number) {
+      if (clues[i].className.indexOf("active-clue") < 0) {
+        clues[i].className += " active-clue";
+      }
+    }
+  }
+}
+
+function getCwCell(row, col) {
+  return document.querySelector('.white[data-row="' + row + '"][data-col="' + col + '"]');
+}
+
+function getCwInput(row, col) {
+  return document.querySelector('.cw-input[data-row="' + row + '"][data-col="' + col + '"]');
+}
+
+function getFirstEmptyInputForEntry(entry) {
+  for (var i = 0; i < entry.cells.length; i++) {
+    var input = getCwInput(entry.cells[i][0], entry.cells[i][1]);
+    if (input && input.value === "") return input;
+  }
+  return null;
+}
+
+function getFirstNotCorrectInputForEntry(entry) {
+  for (var i = 0; i < entry.cells.length; i++) {
+    var input = getCwInput(entry.cells[i][0], entry.cells[i][1]);
+    if (input && input.value !== input.getAttribute("data-answer")) return input;
+  }
+  return null;
+}
+
+function getActiveCellIndex(input) {
+  if (!activeCwEntry) return -1;
+
+  var row = parseInt(input.getAttribute("data-row"), 10);
+  var col = parseInt(input.getAttribute("data-col"), 10);
+
+  for (var i = 0; i < activeCwEntry.cells.length; i++) {
+    if (activeCwEntry.cells[i][0] === row && activeCwEntry.cells[i][1] === col) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function moveToNextCwCell(input) {
+  if (!activeCwEntry) return;
+
+  var index = getActiveCellIndex(input);
+  if (index < 0) return;
+
+  var nextCell = activeCwEntry.cells[index + 1];
+  if (!nextCell) {
+    input.blur();
+    return;
+  }
+
+  var nextInput = getCwInput(nextCell[0], nextCell[1]);
+  if (nextInput) {
+    nextInput.focus();
+    try {
+      nextInput.setSelectionRange(0, nextInput.value.length);
+    } catch (e) {}
+  }
+}
+
+function getPreviousCwInput(input) {
+  var index = getActiveCellIndex(input);
+  if (index <= 0) return null;
+
+  var previousCell = activeCwEntry.cells[index - 1];
+  return getCwInput(previousCell[0], previousCell[1]);
+}
+
+function findBestEntryForCell(row, col) {
+  row = parseInt(row, 10);
+  col = parseInt(col, 10);
+
+  if (activeCwEntry) {
+    for (var a = 0; a < activeCwEntry.cells.length; a++) {
+      if (activeCwEntry.cells[a][0] === row && activeCwEntry.cells[a][1] === col) {
+        return activeCwEntry;
+      }
+    }
+  }
+
+  for (var i = 0; i < cwEntries.length; i++) {
+    for (var j = 0; j < cwEntries[i].cells.length; j++) {
+      if (cwEntries[i].cells[j][0] === row && cwEntries[i].cells[j][1] === col) {
+        return cwEntries[i];
+      }
+    }
+  }
+
+  return null;
+}
+
+function hintSelectedClue() {
+  if (!activeCwEntry) {
+    getEl("crosswordStatus").innerHTML = "Click a clue first, then use Hint.";
+    return;
+  }
+
+  var input = getFirstNotCorrectInputForEntry(activeCwEntry);
+  if (!input) {
+    getEl("crosswordStatus").innerHTML = "This clue is already filled correctly.";
+    return;
+  }
+
+  input.value = input.getAttribute("data-answer");
+  input.parentNode.className = input.parentNode.className.replace(" wrong", "").replace(" correct", "");
+  input.parentNode.className += " correct";
+
+  selectCwEntry(activeCwEntry.direction, activeCwEntry.number, false);
+  var nextInput = getFirstNotCorrectInputForEntry(activeCwEntry);
+  if (nextInput) {
+    nextInput.focus();
+  }
+
+  getEl("crosswordStatus").innerHTML = "Hint added for " + activeCwEntry.number + " " + activeCwEntry.direction + ".";
+  checkCrossword(false);
+}
+
+function revealSelectedClue() {
+  if (!activeCwEntry) {
+    getEl("crosswordStatus").innerHTML = "Click a clue first, then use Reveal Selected Clue.";
+    return;
+  }
+
+  for (var i = 0; i < activeCwEntry.cells.length; i++) {
+    var input = getCwInput(activeCwEntry.cells[i][0], activeCwEntry.cells[i][1]);
+    if (input) {
+      input.value = input.getAttribute("data-answer");
+      input.parentNode.className = input.parentNode.className.replace(" wrong", "").replace(" correct", "");
+      input.parentNode.className += " correct";
+    }
+  }
+
+  selectCwEntry(activeCwEntry.direction, activeCwEntry.number, false);
+  getEl("crosswordStatus").innerHTML = "Revealed " + activeCwEntry.number + " " + activeCwEntry.direction + ".";
+  checkCrossword(false);
+}
+
+function revealPuzzle() {
+  if (!cwEnabled) {
+    cwEnabled = true;
+    renderCrossword(true);
+    renderClues();
+  }
+
+  var inputs = document.getElementsByClassName("cw-input");
+  for (var i = 0; i < inputs.length; i++) {
+    inputs[i].value = inputs[i].getAttribute("data-answer");
+    inputs[i].parentNode.className = "white correct";
+  }
+
+  activeCwEntry = null;
+  clearCwHighlights();
+  getEl("crosswordStatus").innerHTML = "Puzzle revealed. All answers are filled in.";
+}
+
+function checkCrossword(showIncompleteMessage) {
   var inputs = document.getElementsByClassName("cw-input");
   var allFilled = true;
   var allCorrect = true;
@@ -881,9 +690,13 @@ function checkCrossword() {
   }
 
   if (!allFilled) {
-    getEl("crosswordStatus").innerHTML = "Keep going. Fill every white box.";
+    if (showIncompleteMessage) {
+      getEl("crosswordStatus").innerHTML = "Keep going. Fill every white box.";
+    }
     return;
   }
+
+  clearCwHighlights();
 
   for (var j = 0; j < inputs.length; j++) {
     if (inputs[j].value === inputs[j].getAttribute("data-answer")) {
