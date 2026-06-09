@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kid Game Zone</title>
-<!-- Crossword update v2: continuous typing, hint, reveal clue, reveal puzzle -->
+<!-- Crossword update v3: fixed page structure, continuous typing, reveal word, reveal puzzle, fresh puzzle -->
 <style>
   :root {
     --purple: #6c63ff;
@@ -43,21 +43,6 @@
 
   h1 { margin: 0; font-size: 2.4rem; }
   h2 { margin: 8px 0; }
-
-  .js-check {
-    margin: 12px auto 0;
-    display: inline-block;
-    background: #ffe3e3;
-    color: #9b2226;
-    padding: 8px 12px;
-    border-radius: 999px;
-    font-weight: 800;
-  }
-
-  .js-check.ready {
-    background: #d3f9d8;
-    color: #1b7f4b;
-  }
 
   .tabs {
     display: flex;
@@ -131,7 +116,7 @@
     font-family: inherit;
   }
 
-  .play, .reset {
+  .play, .reset, .help-btn {
     border: 0;
     border-radius: 14px;
     color: white;
@@ -144,6 +129,9 @@
 
   .play { background: var(--green); }
   .reset { background: var(--red); }
+  .help-btn { background: var(--blue); }
+  .help-btn.purple { background: var(--purple); }
+  .help-btn.yellow { background: #f59f00; }
 
   .status {
     background: #eef7ff;
@@ -156,12 +144,20 @@
   }
 
   /* Memory */
+  .memory-wrap {
+    position: relative;
+    max-width: 650px;
+    margin: 0 auto;
+  }
+
   #memoryBoard {
     display: grid;
     grid-template-columns: repeat(5, minmax(50px, 1fr));
     gap: 10px;
     max-width: 650px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
   }
 
   .memory-card {
@@ -186,18 +182,6 @@
   .memory-card:disabled {
     opacity: .75;
     cursor: not-allowed;
-  }
-
-
-  .memory-wrap {
-    position: relative;
-    max-width: 650px;
-    margin: 0 auto;
-  }
-
-  #memoryBoard {
-    position: relative;
-    z-index: 1;
   }
 
   .memory-countdown {
@@ -230,59 +214,680 @@
   }
 
   /* Crossword */
-var cwRows = [
-  "MATH#PIG",
-  "I##E#E##",
-  "LION#NET",
-  "K#######",
-  "FROG#BED",
-  "I####U##",
-  "STAR#SEA",
-  "H#######"
+  .crossword-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 420px) 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+
+  #crosswordBoard {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(32px, 1fr));
+    gap: 4px;
+    max-width: 420px;
+    margin: 0 auto;
+    background: #90a4ae;
+    padding: 6px;
+    border-radius: 12px;
+  }
+
+  .black, .white {
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+  }
+
+  .black {
+    background: #263238;
+  }
+
+  .white {
+    position: relative;
+    background: white;
+    border: 2px solid #dbe4e9;
+    overflow: hidden;
+  }
+
+  .white.active {
+    border-color: var(--yellow);
+    box-shadow: inset 0 0 0 3px rgba(255, 212, 59, .45);
+  }
+
+  .white.correct {
+    background: #d3f9d8;
+    border-color: #69db7c;
+  }
+
+  .white.wrong {
+    background: #ffe3e3;
+    border-color: #ff8787;
+  }
+
+  .num {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: .7rem;
+    font-weight: 900;
+    color: #546e7a;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .cw-input {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: transparent;
+    text-align: center;
+    text-transform: uppercase;
+    font-size: clamp(1rem, 5vw, 1.8rem);
+    font-weight: 900;
+    color: #263238;
+    outline: none;
+    padding: 10px 0 0;
+    caret-color: var(--purple);
+  }
+
+  .cw-input:disabled {
+    color: #90a4ae;
+    cursor: not-allowed;
+  }
+
+  .clues {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .clue-box {
+    background: #ffffff;
+    border: 2px solid #e3f2fd;
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .clue-box h3 {
+    margin: 0 0 8px;
+    color: var(--purple);
+  }
+
+  .clue-box ol {
+    margin: 0;
+    padding-left: 28px;
+  }
+
+  .clue-box li {
+    padding: 8px;
+    margin: 3px 0;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 800;
+  }
+
+  .clue-box li:hover,
+  .clue-box li.active-clue {
+    background: #fff3bf;
+  }
+
+  /* Hangman */
+  .hangman-layout {
+    display: grid;
+    grid-template-columns: minmax(240px, 330px) 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+
+  #hangmanSvg {
+    width: 100%;
+    max-width: 330px;
+    background: white;
+    border-radius: 18px;
+    border: 3px solid #e3f2fd;
+  }
+
+  .hidden-part { display: none; }
+
+  #wordDisplay {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    min-height: 62px;
+    margin-bottom: 16px;
+  }
+
+  .slot {
+    width: 44px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    border-bottom: 5px solid var(--purple);
+    font-size: 2rem;
+    font-weight: 900;
+    background: #f8f9fa;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .space {
+    width: 28px;
+  }
+
+  #keyboard {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .key {
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--purple);
+    color: white;
+    font-weight: 900;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .key.good { background: var(--green); }
+  .key.bad { background: var(--red); }
+  .key:disabled { opacity: .65; cursor: not-allowed; }
+
+  @media (max-width: 780px) {
+    .crossword-layout, .hangman-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .clues {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Kid Game Zone</h1>
+    <h2>Pick a game and have fun!</h2>
+  </header>
+
+  <nav class="tabs" aria-label="Game tabs">
+    <button type="button" class="tab active" data-panel="memoryPanel">Memory</button>
+    <button type="button" class="tab" data-panel="crosswordPanel">Crossword</button>
+    <button type="button" class="tab" data-panel="hangmanPanel">Hangman</button>
+  </nav>
+
+  <section id="memoryPanel" class="panel active">
+    <div class="game-top">
+      <div>
+        <h2>Memory Match</h2>
+        <p>Find all of the matching pairs.</p>
+      </div>
+      <div class="controls">
+        <label>
+          Difficulty
+          <select id="memoryDifficulty">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <button type="button" class="play" onclick="startMemory()">Play</button>
+        <button type="button" class="reset" onclick="resetMemory()">Reset</button>
+      </div>
+    </div>
+    <div id="memoryStatus" class="status">Press Play to start.</div>
+    <div class="memory-wrap">
+      <div id="memoryBoard"></div>
+      <div id="memoryCountdown" class="memory-countdown"><span id="memoryCountdownNumber">5</span></div>
+    </div>
+  </section>
+
+  <section id="crosswordPanel" class="panel">
+    <div class="game-top">
+      <div>
+        <h2>Crossword</h2>
+        <p>Click a clue, then type the answer. The cursor moves through the selected clue.</p>
+      </div>
+      <div class="controls">
+        <label>
+          Difficulty
+          <select id="crosswordDifficulty" onchange="renderClues()">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <button type="button" class="play" onclick="startCrossword()">Play</button>
+        <button type="button" class="help-btn" onclick="hintSelectedClue()">Hint</button>
+        <button type="button" class="help-btn purple" onclick="revealSelectedWord()">Reveal Word</button>
+        <button type="button" class="help-btn yellow" onclick="revealPuzzle()">Reveal Puzzle</button>
+        <button type="button" class="play" onclick="freshCrossword()">Fresh Puzzle</button>
+        <button type="button" class="reset" onclick="resetCrossword()">Reset</button>
+      </div>
+    </div>
+    <div id="crosswordStatus" class="status">Press Play to start.</div>
+    <div class="crossword-layout">
+      <div id="crosswordBoard" aria-label="Crossword board"></div>
+      <div class="clues">
+        <div class="clue-box">
+          <h3>Across</h3>
+          <ol id="acrossClues"></ol>
+        </div>
+        <div class="clue-box">
+          <h3>Down</h3>
+          <ol id="downClues"></ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="hangmanPanel" class="panel">
+    <div class="game-top">
+      <div>
+        <h2>Hangman</h2>
+        <p>Guess the word before the picture is complete.</p>
+      </div>
+      <div class="controls">
+        <label>
+          Difficulty
+          <select id="hangmanDifficulty">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <label>
+          Category
+          <select id="hangmanCategory">
+            <option value="mixed">Mixed</option>
+            <option value="animals">Animals</option>
+            <option value="school">School</option>
+            <option value="magic">Magic/Adventure</option>
+            <option value="sports">Sports</option>
+          </select>
+        </label>
+        <button type="button" class="play" onclick="startHangman()">Play</button>
+        <button type="button" class="reset" onclick="resetHangman()">Reset</button>
+      </div>
+    </div>
+    <div id="hangmanHint" class="status">Hint will show here.</div>
+    <div id="hangmanStatus" class="status">Press Play to start.</div>
+    <div class="hangman-layout">
+      <svg id="hangmanSvg" viewBox="0 0 240 240" role="img" aria-label="Hangman drawing">
+        <line x1="35" y1="220" x2="210" y2="220" stroke="#263238" stroke-width="8" stroke-linecap="round"/>
+        <line x1="70" y1="220" x2="70" y2="25" stroke="#263238" stroke-width="8" stroke-linecap="round"/>
+        <line x1="70" y1="25" x2="160" y2="25" stroke="#263238" stroke-width="8" stroke-linecap="round"/>
+        <line x1="160" y1="25" x2="160" y2="55" stroke="#263238" stroke-width="5" stroke-linecap="round"/>
+        <circle id="part1" class="hidden-part" cx="160" cy="75" r="20" fill="none" stroke="#ff6b6b" stroke-width="7"/>
+        <line id="part2" class="hidden-part" x1="160" y1="96" x2="160" y2="150" stroke="#ff6b6b" stroke-width="7" stroke-linecap="round"/>
+        <line id="part3" class="hidden-part" x1="160" y1="112" x2="132" y2="135" stroke="#ff6b6b" stroke-width="7" stroke-linecap="round"/>
+        <line id="part4" class="hidden-part" x1="160" y1="112" x2="188" y2="135" stroke="#ff6b6b" stroke-width="7" stroke-linecap="round"/>
+        <line id="part5" class="hidden-part" x1="160" y1="150" x2="136" y2="185" stroke="#ff6b6b" stroke-width="7" stroke-linecap="round"/>
+        <line id="part6" class="hidden-part" x1="160" y1="150" x2="184" y2="185" stroke="#ff6b6b" stroke-width="7" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div id="wordDisplay"></div>
+        <div id="keyboard"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+function getEl(id) {
+  return document.getElementById(id);
+}
+
+function shuffleArray(items) {
+  var arr = items.slice();
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var temp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = temp;
+  }
+  return arr;
+}
+
+var tabButtons = document.querySelectorAll(".tab");
+for (var t = 0; t < tabButtons.length; t++) {
+  tabButtons[t].onclick = function() {
+    var panelId = this.getAttribute("data-panel");
+    var tabs = document.querySelectorAll(".tab");
+    var panels = document.querySelectorAll(".panel");
+
+    for (var i = 0; i < tabs.length; i++) tabs[i].className = tabs[i].className.replace(" active", "");
+    for (var j = 0; j < panels.length; j++) panels[j].className = panels[j].className.replace(" active", "");
+
+    this.className += " active";
+    getEl(panelId).className += " active";
+  };
+}
+
+/* Memory */
+var memoryEmojis = ["🐶", "🐱", "🦊", "🐼", "🐸", "🦁", "🐵", "🐷", "🐨", "🐰"];
+var memoryCards = [];
+var firstCard = null;
+var secondCard = null;
+var memoryLocked = false;
+var memoryMatches = 0;
+var memoryStarted = false;
+var memoryCountdownTimer = null;
+
+function startMemory() {
+  clearMemoryCountdown();
+  var difficulty = getEl("memoryDifficulty").value;
+  var pairCount = difficulty === "easy" ? 6 : difficulty === "medium" ? 8 : 10;
+  var chosen = memoryEmojis.slice(0, pairCount);
+  var doubled = [];
+
+  for (var i = 0; i < chosen.length; i++) {
+    doubled.push({ emoji: chosen[i], id: i + "a", matched: false, showing: false });
+    doubled.push({ emoji: chosen[i], id: i + "b", matched: false, showing: false });
+  }
+
+  memoryCards = shuffleArray(doubled);
+  firstCard = null;
+  secondCard = null;
+  memoryLocked = false;
+  memoryMatches = 0;
+  memoryStarted = true;
+  renderMemory();
+
+  if (difficulty === "easy" || difficulty === "medium") {
+    var seconds = difficulty === "easy" ? 5 : 3;
+    showMemoryPeek(seconds);
+  } else {
+    hideAllUnmatchedMemoryCards();
+    getEl("memoryStatus").innerHTML = "Hard mode: find the matching pairs.";
+  }
+}
+
+function resetMemory() {
+  clearMemoryCountdown();
+  memoryCards = [];
+  firstCard = null;
+  secondCard = null;
+  memoryLocked = false;
+  memoryMatches = 0;
+  memoryStarted = false;
+  getEl("memoryStatus").innerHTML = "Press Play to start.";
+  getEl("memoryBoard").innerHTML = "";
+}
+
+function showMemoryPeek(seconds) {
+  memoryLocked = true;
+  for (var i = 0; i < memoryCards.length; i++) {
+    memoryCards[i].showing = true;
+  }
+  renderMemory();
+
+  var countdown = getEl("memoryCountdown");
+  var number = getEl("memoryCountdownNumber");
+  countdown.className = "memory-countdown show";
+  number.innerHTML = seconds;
+  getEl("memoryStatus").innerHTML = "Look carefully. The cards will hide when the countdown ends.";
+
+  var remaining = seconds;
+  memoryCountdownTimer = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      clearMemoryCountdown();
+      hideAllUnmatchedMemoryCards();
+      memoryLocked = false;
+      getEl("memoryStatus").innerHTML = "Now find the matching pairs.";
+      renderMemory();
+      return;
+    }
+    number.innerHTML = remaining;
+  }, 1000);
+}
+
+function clearMemoryCountdown() {
+  if (memoryCountdownTimer) {
+    clearInterval(memoryCountdownTimer);
+    memoryCountdownTimer = null;
+  }
+  var countdown = getEl("memoryCountdown");
+  if (countdown) countdown.className = "memory-countdown";
+}
+
+function hideAllUnmatchedMemoryCards() {
+  for (var i = 0; i < memoryCards.length; i++) {
+    if (!memoryCards[i].matched) memoryCards[i].showing = false;
+  }
+}
+
+function renderMemory() {
+  var board = getEl("memoryBoard");
+  board.innerHTML = "";
+
+  if (!memoryStarted) return;
+
+  for (var i = 0; i < memoryCards.length; i++) {
+    var card = memoryCards[i];
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "memory-card";
+    btn.setAttribute("data-index", i);
+
+    if (card.showing || card.matched) {
+      btn.innerHTML = card.emoji;
+      btn.className += card.matched ? " matched" : " showing";
+    } else {
+      btn.innerHTML = "?";
+    }
+
+    if (memoryLocked || card.matched || card.showing) {
+      btn.disabled = card.matched || memoryLocked;
+    }
+
+    btn.onclick = function() {
+      flipMemoryCard(parseInt(this.getAttribute("data-index"), 10));
+    };
+
+    board.appendChild(btn);
+  }
+}
+
+function flipMemoryCard(index) {
+  if (!memoryStarted || memoryLocked) return;
+
+  var card = memoryCards[index];
+  if (!card || card.matched || card.showing) return;
+
+  card.showing = true;
+
+  if (!firstCard) {
+    firstCard = index;
+    getEl("memoryStatus").innerHTML = "Pick one more card.";
+    renderMemory();
+    return;
+  }
+
+  secondCard = index;
+  memoryLocked = true;
+  renderMemory();
+
+  if (memoryCards[firstCard].emoji === memoryCards[secondCard].emoji) {
+    memoryCards[firstCard].matched = true;
+    memoryCards[secondCard].matched = true;
+    memoryMatches++;
+    firstCard = null;
+    secondCard = null;
+    memoryLocked = false;
+
+    if (memoryMatches === memoryCards.length / 2) {
+      getEl("memoryStatus").innerHTML = "🎉 You found every match!";
+    } else {
+      getEl("memoryStatus").innerHTML = "Match! Keep going.";
+    }
+    renderMemory();
+  } else {
+    getEl("memoryStatus").innerHTML = "Not a match. Try again.";
+    setTimeout(function() {
+      memoryCards[firstCard].showing = false;
+      memoryCards[secondCard].showing = false;
+      firstCard = null;
+      secondCard = null;
+      memoryLocked = false;
+      renderMemory();
+    }, 900);
+  }
+}
+
+/* Crossword */
+var crosswordPuzzles = [
+  {
+    name: "Animals and School",
+    rows: [
+      "MATH#PIG",
+      "I##E#E##",
+      "LION#NET",
+      "K#######",
+      "FROG#BED",
+      "I####U##",
+      "STAR#SEA",
+      "H#######"
+    ],
+    numbers: { "0-0": 1, "0-3": 2, "0-5": 3, "2-0": 4, "2-5": 5, "4-0": 6, "4-5": 7, "6-0": 8, "6-5": 9 },
+    across: [
+      [1, { easy: "School subject with adding and subtracting.", medium: "The subject where you solve number problems.", hard: "Numbers, shapes, and problem-solving class." }],
+      [3, { easy: "Farm animal that says oink.", medium: "A pink farm animal.", hard: "An animal that may roll in mud." }],
+      [4, { easy: "Big cat with a loud roar.", medium: "A wild animal called the king of the jungle.", hard: "A big cat with a mane." }],
+      [5, { easy: "You might catch a butterfly with this.", medium: "A tool for catching or holding things.", hard: "A web-like thing used in some sports." }],
+      [6, { easy: "Green animal that jumps and says ribbit.", medium: "An animal that starts as a tadpole.", hard: "A hopping amphibian." }],
+      [7, { easy: "Where you sleep.", medium: "A place to rest at night.", hard: "A piece of furniture used for sleeping." }],
+      [8, { easy: "A bright shape you see in the night sky.", medium: "Something that twinkles in space.", hard: "A faraway ball of glowing gas." }],
+      [9, { easy: "A big area of salty water.", medium: "Another word for ocean water.", hard: "A large body of salt water." }]
+    ],
+    down: [
+      [1, { easy: "White drink that often comes from cows.", medium: "A drink many kids have with cereal.", hard: "A dairy drink." }],
+      [2, { easy: "A grown-up female chicken.", medium: "A farm bird that can lay eggs.", hard: "An egg-laying chicken." }],
+      [3, { easy: "You write with this.", medium: "A writing tool that uses ink.", hard: "An ink tool used for writing." }],
+      [6, { easy: "Animal that swims in water.", medium: "A water animal with fins.", hard: "An animal that uses gills." }],
+      [7, { easy: "A big vehicle that takes kids to school.", medium: "A vehicle many students ride.", hard: "Public transportation with many seats." }]
+    ],
+    entries: [
+      { number: 1, direction: "across", answer: "MATH", cells: [[0,0],[0,1],[0,2],[0,3]] },
+      { number: 3, direction: "across", answer: "PIG", cells: [[0,5],[0,6],[0,7]] },
+      { number: 4, direction: "across", answer: "LION", cells: [[2,0],[2,1],[2,2],[2,3]] },
+      { number: 5, direction: "across", answer: "NET", cells: [[2,5],[2,6],[2,7]] },
+      { number: 6, direction: "across", answer: "FROG", cells: [[4,0],[4,1],[4,2],[4,3]] },
+      { number: 7, direction: "across", answer: "BED", cells: [[4,5],[4,6],[4,7]] },
+      { number: 8, direction: "across", answer: "STAR", cells: [[6,0],[6,1],[6,2],[6,3]] },
+      { number: 9, direction: "across", answer: "SEA", cells: [[6,5],[6,6],[6,7]] },
+      { number: 1, direction: "down", answer: "MILK", cells: [[0,0],[1,0],[2,0],[3,0]] },
+      { number: 2, direction: "down", answer: "HEN", cells: [[0,3],[1,3],[2,3]] },
+      { number: 3, direction: "down", answer: "PEN", cells: [[0,5],[1,5],[2,5]] },
+      { number: 6, direction: "down", answer: "FISH", cells: [[4,0],[5,0],[6,0],[7,0]] },
+      { number: 7, direction: "down", answer: "BUS", cells: [[4,5],[5,5],[6,5]] }
+    ]
+  },
+  {
+    name: "Nature and Fun",
+    rows: [
+      "BIRD#COW",
+      "E##A#A##",
+      "AWAY#TOY",
+      "R#######",
+      "WIND#SKY",
+      "O####U##",
+      "LEAF#NET",
+      "F#######"
+    ],
+    numbers: { "0-0": 1, "0-3": 2, "0-5": 3, "2-0": 4, "2-5": 5, "4-0": 6, "4-5": 7, "6-0": 8, "6-5": 9 },
+    across: [
+      [1, { easy: "Animal with wings and feathers.", medium: "It can fly and often builds a nest.", hard: "A feathered animal that may sing." }],
+      [3, { easy: "Farm animal that says moo.", medium: "An animal that gives milk.", hard: "A large farm animal with hooves." }],
+      [4, { easy: "Not here, but far ____.", medium: "The opposite of nearby.", hard: "At a distance from this place." }],
+      [5, { easy: "Something fun to play with.", medium: "A doll, car, or block can be this.", hard: "An object used for play." }],
+      [6, { easy: "Moving air you can feel outside.", medium: "Air that blows.", hard: "A natural movement of air." }],
+      [7, { easy: "Look up to see clouds here.", medium: "The blue space above us.", hard: "The space overhead seen from Earth." }],
+      [8, { easy: "Green part of a plant or tree.", medium: "A flat green plant part.", hard: "A plant part that helps make food." }],
+      [9, { easy: "You might catch a butterfly with this.", medium: "A tool for catching or holding things.", hard: "A web-like thing used in some sports." }]
+    ],
+    down: [
+      [1, { easy: "Big furry animal that likes honey.", medium: "A strong animal that may hibernate.", hard: "A large mammal with thick fur." }],
+      [2, { easy: "Morning, afternoon, and night make one ____.", medium: "A 24-hour time period.", hard: "One full rotation of Earth." }],
+      [3, { easy: "Small pet that says meow.", medium: "A furry animal with whiskers.", hard: "A common household feline." }],
+      [6, { easy: "Wild animal that looks like a big dog.", medium: "An animal that howls.", hard: "A wild canine." }],
+      [7, { easy: "Bright light in the daytime sky.", medium: "It gives Earth light and warmth.", hard: "The star at the center of our solar system." }]
+    ],
+    entries: [
+      { number: 1, direction: "across", answer: "BIRD", cells: [[0,0],[0,1],[0,2],[0,3]] },
+      { number: 3, direction: "across", answer: "COW", cells: [[0,5],[0,6],[0,7]] },
+      { number: 4, direction: "across", answer: "AWAY", cells: [[2,0],[2,1],[2,2],[2,3]] },
+      { number: 5, direction: "across", answer: "TOY", cells: [[2,5],[2,6],[2,7]] },
+      { number: 6, direction: "across", answer: "WIND", cells: [[4,0],[4,1],[4,2],[4,3]] },
+      { number: 7, direction: "across", answer: "SKY", cells: [[4,5],[4,6],[4,7]] },
+      { number: 8, direction: "across", answer: "LEAF", cells: [[6,0],[6,1],[6,2],[6,3]] },
+      { number: 9, direction: "across", answer: "NET", cells: [[6,5],[6,6],[6,7]] },
+      { number: 1, direction: "down", answer: "BEAR", cells: [[0,0],[1,0],[2,0],[3,0]] },
+      { number: 2, direction: "down", answer: "DAY", cells: [[0,3],[1,3],[2,3]] },
+      { number: 3, direction: "down", answer: "CAT", cells: [[0,5],[1,5],[2,5]] },
+      { number: 6, direction: "down", answer: "WOLF", cells: [[4,0],[5,0],[6,0],[7,0]] },
+      { number: 7, direction: "down", answer: "SUN", cells: [[4,5],[5,5],[6,5]] }
+    ]
+  },
+  {
+    name: "Simple Words",
+    rows: [
+      "CAVE#OWL",
+      "A##N#A##",
+      "KIND#RUG",
+      "E#######",
+      "MOON#BUG",
+      "O####A##",
+      "OPEN#TOP",
+      "N#######"
+    ],
+    numbers: { "0-0": 1, "0-3": 2, "0-5": 3, "2-0": 4, "2-5": 5, "4-0": 6, "4-5": 7, "6-0": 8, "6-5": 9 },
+    across: [
+      [1, { easy: "A hollow place in a hill or mountain.", medium: "A natural underground room.", hard: "A hollow opening in rock." }],
+      [3, { easy: "Night bird that says hoot.", medium: "A bird with big eyes.", hard: "A nocturnal bird of prey." }],
+      [4, { easy: "Nice and caring.", medium: "Helpful and gentle to others.", hard: "Showing care and goodness." }],
+      [5, { easy: "Soft mat on the floor.", medium: "A small carpet.", hard: "A floor covering." }],
+      [6, { easy: "Round thing that shines at night.", medium: "Earth has one of these in the night sky.", hard: "A natural satellite." }],
+      [7, { easy: "Tiny insect with six legs.", medium: "A small creepy-crawly animal.", hard: "A small insect." }],
+      [8, { easy: "The opposite of closed.", medium: "Not shut.", hard: "Allowing access or entry." }],
+      [9, { easy: "The highest part.", medium: "The opposite of bottom.", hard: "The uppermost part." }]
+    ],
+    down: [
+      [1, { easy: "Sweet treat for birthdays.", medium: "A dessert often served with candles.", hard: "A baked dessert." }],
+      [2, { easy: "The finish or last part.", medium: "Where something stops.", hard: "A final point." }],
+      [3, { easy: "A boat paddle.", medium: "Used to row a boat.", hard: "A pole with a flat blade for rowing." }],
+      [6, { easy: "Round thing that shines at night.", medium: "Earth has one of these in the night sky.", hard: "A natural satellite." }],
+      [7, { easy: "A flying animal that sleeps upside down.", medium: "A nocturnal animal with wings.", hard: "A winged mammal." }]
+    ],
+    entries: [
+      { number: 1, direction: "across", answer: "CAVE", cells: [[0,0],[0,1],[0,2],[0,3]] },
+      { number: 3, direction: "across", answer: "OWL", cells: [[0,5],[0,6],[0,7]] },
+      { number: 4, direction: "across", answer: "KIND", cells: [[2,0],[2,1],[2,2],[2,3]] },
+      { number: 5, direction: "across", answer: "RUG", cells: [[2,5],[2,6],[2,7]] },
+      { number: 6, direction: "across", answer: "MOON", cells: [[4,0],[4,1],[4,2],[4,3]] },
+      { number: 7, direction: "across", answer: "BUG", cells: [[4,5],[4,6],[4,7]] },
+      { number: 8, direction: "across", answer: "OPEN", cells: [[6,0],[6,1],[6,2],[6,3]] },
+      { number: 9, direction: "across", answer: "TOP", cells: [[6,5],[6,6],[6,7]] },
+      { number: 1, direction: "down", answer: "CAKE", cells: [[0,0],[1,0],[2,0],[3,0]] },
+      { number: 2, direction: "down", answer: "END", cells: [[0,3],[1,3],[2,3]] },
+      { number: 3, direction: "down", answer: "OAR", cells: [[0,5],[1,5],[2,5]] },
+      { number: 6, direction: "down", answer: "MOON", cells: [[4,0],[5,0],[6,0],[7,0]] },
+      { number: 7, direction: "down", answer: "BAT", cells: [[4,5],[5,5],[6,5]] }
+    ]
+  }
 ];
 
-var cwNumbers = {
-  "0-0": 1, "0-3": 2, "0-5": 3, "2-0": 4, "2-5": 5,
-  "4-0": 6, "4-5": 7, "6-0": 8, "6-5": 9
-};
-
-var cwAcross = [
-  [1, { easy: "School subject with adding and subtracting.", medium: "The subject where you solve number problems.", hard: "Numbers, shapes, and problem-solving class." }],
-  [3, { easy: "Farm animal that says oink.", medium: "A pink farm animal.", hard: "An animal that may roll in mud." }],
-  [4, { easy: "Big cat with a loud roar.", medium: "A wild animal called the king of the jungle.", hard: "A big cat with a mane." }],
-  [5, { easy: "You might catch a butterfly with this.", medium: "A tool for catching or holding things.", hard: "A web-like thing used in some sports." }],
-  [6, { easy: "Green animal that jumps and says ribbit.", medium: "An animal that starts as a tadpole.", hard: "A hopping amphibian." }],
-  [7, { easy: "Where you sleep.", medium: "A place to rest at night.", hard: "A piece of furniture used for sleeping." }],
-  [8, { easy: "A bright shape you see in the night sky.", medium: "Something that twinkles in space.", hard: "A faraway ball of glowing gas." }],
-  [9, { easy: "A big area of salty water.", medium: "Another word for ocean water.", hard: "A large body of salt water." }]
-];
-
-var cwDown = [
-  [1, { easy: "White drink that often comes from cows.", medium: "A drink many kids have with cereal.", hard: "A dairy drink." }],
-  [2, { easy: "A grown-up female chicken.", medium: "A farm bird that can lay eggs.", hard: "An egg-laying chicken." }],
-  [3, { easy: "You write with this.", medium: "A writing tool that uses ink.", hard: "An ink tool used for writing." }],
-  [6, { easy: "Animal that swims in water.", medium: "A water animal with fins.", hard: "An animal that uses gills." }],
-  [7, { easy: "A big vehicle that takes kids to school.", medium: "A vehicle many students ride.", hard: "Public transportation with many seats." }]
-];
-
-var cwEntries = [
-  { number: 1, direction: "across", answer: "MATH", cells: [[0,0],[0,1],[0,2],[0,3]] },
-  { number: 3, direction: "across", answer: "PIG", cells: [[0,5],[0,6],[0,7]] },
-  { number: 4, direction: "across", answer: "LION", cells: [[2,0],[2,1],[2,2],[2,3]] },
-  { number: 5, direction: "across", answer: "NET", cells: [[2,5],[2,6],[2,7]] },
-  { number: 6, direction: "across", answer: "FROG", cells: [[4,0],[4,1],[4,2],[4,3]] },
-  { number: 7, direction: "across", answer: "BED", cells: [[4,5],[4,6],[4,7]] },
-  { number: 8, direction: "across", answer: "STAR", cells: [[6,0],[6,1],[6,2],[6,3]] },
-  { number: 9, direction: "across", answer: "SEA", cells: [[6,5],[6,6],[6,7]] },
-  { number: 1, direction: "down", answer: "MILK", cells: [[0,0],[1,0],[2,0],[3,0]] },
-  { number: 2, direction: "down", answer: "HEN", cells: [[0,3],[1,3],[2,3]] },
-  { number: 3, direction: "down", answer: "PEN", cells: [[0,5],[1,5],[2,5]] },
-  { number: 6, direction: "down", answer: "FISH", cells: [[4,0],[5,0],[6,0],[7,0]] },
-  { number: 7, direction: "down", answer: "BUS", cells: [[4,5],[5,5],[6,5]] }
-];
-
+var crosswordIndex = 0;
 var cwEnabled = false;
 var activeCwEntry = null;
+
+function currentCrossword() {
+  return crosswordPuzzles[crosswordIndex];
+}
 
 function startCrossword() {
   cwEnabled = true;
@@ -300,13 +905,23 @@ function resetCrossword() {
   getEl("crosswordStatus").innerHTML = "Press Play to start.";
 }
 
+function freshCrossword() {
+  crosswordIndex = (crosswordIndex + 1) % crosswordPuzzles.length;
+  cwEnabled = true;
+  activeCwEntry = null;
+  renderCrossword(true);
+  renderClues();
+  getEl("crosswordStatus").innerHTML = "Fresh puzzle loaded: " + currentCrossword().name + ". Click a clue, then type continuously.";
+}
+
 function renderCrossword(enabled) {
   var board = getEl("crosswordBoard");
+  var puzzle = currentCrossword();
   board.innerHTML = "";
 
-  for (var r = 0; r < cwRows.length; r++) {
-    for (var c = 0; c < cwRows[r].length; c++) {
-      var letter = cwRows[r].charAt(c);
+  for (var r = 0; r < puzzle.rows.length; r++) {
+    for (var c = 0; c < puzzle.rows[r].length; c++) {
+      var letter = puzzle.rows[r].charAt(c);
 
       if (letter === "#") {
         var black = document.createElement("div");
@@ -318,7 +933,7 @@ function renderCrossword(enabled) {
         cell.setAttribute("data-row", r);
         cell.setAttribute("data-col", c);
 
-        var number = cwNumbers[r + "-" + c];
+        var number = puzzle.numbers[r + "-" + c];
         if (number) {
           var numSpan = document.createElement("span");
           numSpan.className = "num";
@@ -338,70 +953,66 @@ function renderCrossword(enabled) {
         input.setAttribute("data-answer", letter);
         input.setAttribute("data-row", r);
         input.setAttribute("data-col", c);
+        input.setAttribute("aria-label", "Crossword row " + (r + 1) + " column " + (c + 1));
+
+        input.onfocus = function() {
+          var found = findBestEntryForCell(this.getAttribute("data-row"), this.getAttribute("data-col"));
+          if (found) {
+            setActiveCwEntry(found, false, false);
+          }
+        };
 
         input.onclick = function() {
           var found = findBestEntryForCell(this.getAttribute("data-row"), this.getAttribute("data-col"));
           if (found) {
-            selectCwEntry(found.direction, found.number, false);
+            setActiveCwEntry(found, false, false);
           }
         };
 
         input.onkeydown = function(event) {
           if (!cwEnabled) return;
 
-          if (!activeCwEntry) {
-            var found = findBestEntryForCell(this.getAttribute("data-row"), this.getAttribute("data-col"));
-            if (found) selectCwEntry(found.direction, found.number, false);
-          }
+          ensureActiveEntryForInput(this);
 
           if (event.key === "Backspace") {
-            if (this.value !== "") {
-              this.value = "";
-              event.preventDefault();
-              checkCrossword(false);
-              return;
-            }
+            event.preventDefault();
+            handleCwBackspace(this);
+            return;
+          }
 
+          if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+            event.preventDefault();
+            moveToNextCwCell(this);
+            return;
+          }
+
+          if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+            event.preventDefault();
             var previous = getPreviousCwInput(this);
-            if (previous) {
-              event.preventDefault();
-              previous.focus();
-              previous.value = "";
-              checkCrossword(false);
-            }
+            if (previous) focusCwInput(previous);
             return;
           }
 
           if (event.key && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
             event.preventDefault();
-            this.value = event.key.toUpperCase();
-            this.parentNode.className = this.parentNode.className.replace(" correct", "").replace(" wrong", "");
-            moveToNextCwCell(this);
-            checkCrossword(false);
+            enterCwLetter(this, event.key);
           }
         };
 
         input.oninput = function() {
           if (!cwEnabled) return;
 
+          ensureActiveEntryForInput(this);
           var value = this.value.replace(/[^a-zA-Z]/g, "").toUpperCase();
-          this.value = value.slice(-1);
 
-          this.parentNode.className = this.parentNode.className.replace(" correct", "").replace(" wrong", "");
-
-          if (!activeCwEntry) {
-            var found = findBestEntryForCell(this.getAttribute("data-row"), this.getAttribute("data-col"));
-            if (found) selectCwEntry(found.direction, found.number, false);
+          if (value.length === 0) {
+            this.value = "";
+            removeCellResultClasses(this.parentNode);
+            checkCrossword(false);
+            return;
           }
 
-          if (this.value.length === 1) {
-            var current = this;
-            setTimeout(function() {
-              moveToNextCwCell(current);
-            }, 0);
-          }
-
-          checkCrossword(false);
+          enterCwLetter(this, value.charAt(value.length - 1));
         };
 
         cell.appendChild(input);
@@ -413,33 +1024,18 @@ function renderCrossword(enabled) {
 
 function renderClues() {
   var level = getEl("crosswordDifficulty").value;
+  var puzzle = currentCrossword();
   var across = getEl("acrossClues");
   var down = getEl("downClues");
   across.innerHTML = "";
   down.innerHTML = "";
 
-  for (var i = 0; i < cwAcross.length; i++) {
-    var li = document.createElement("li");
-    li.value = cwAcross[i][0];
-    li.innerHTML = cwAcross[i][1][level];
-    li.setAttribute("data-number", cwAcross[i][0]);
-    li.setAttribute("data-direction", "across");
-    li.onclick = function() {
-      selectCwEntry(this.getAttribute("data-direction"), parseInt(this.getAttribute("data-number"), 10), true);
-    };
-    across.appendChild(li);
+  for (var i = 0; i < puzzle.across.length; i++) {
+    across.appendChild(makeClueItem(puzzle.across[i], level, "across"));
   }
 
-  for (var j = 0; j < cwDown.length; j++) {
-    var li2 = document.createElement("li");
-    li2.value = cwDown[j][0];
-    li2.innerHTML = cwDown[j][1][level];
-    li2.setAttribute("data-number", cwDown[j][0]);
-    li2.setAttribute("data-direction", "down");
-    li2.onclick = function() {
-      selectCwEntry(this.getAttribute("data-direction"), parseInt(this.getAttribute("data-number"), 10), true);
-    };
-    down.appendChild(li2);
+  for (var j = 0; j < puzzle.down.length; j++) {
+    down.appendChild(makeClueItem(puzzle.down[j], level, "down"));
   }
 
   if (activeCwEntry) {
@@ -447,10 +1043,23 @@ function renderClues() {
   }
 }
 
+function makeClueItem(clueData, level, direction) {
+  var li = document.createElement("li");
+  li.value = clueData[0];
+  li.innerHTML = clueData[1][level];
+  li.setAttribute("data-number", clueData[0]);
+  li.setAttribute("data-direction", direction);
+  li.onclick = function() {
+    selectCwEntry(this.getAttribute("data-direction"), parseInt(this.getAttribute("data-number"), 10), true);
+  };
+  return li;
+}
+
 function getCwEntry(direction, number) {
-  for (var i = 0; i < cwEntries.length; i++) {
-    if (cwEntries[i].direction === direction && cwEntries[i].number === number) {
-      return cwEntries[i];
+  var entries = currentCrossword().entries;
+  for (var i = 0; i < entries.length; i++) {
+    if (entries[i].direction === direction && entries[i].number === number) {
+      return entries[i];
     }
   }
   return null;
@@ -466,31 +1075,38 @@ function selectCwEntry(direction, number, showMessage) {
   var entry = getCwEntry(direction, number);
   if (!entry) return;
 
+  setActiveCwEntry(entry, true, showMessage !== false);
+}
+
+function setActiveCwEntry(entry, shouldFocus, showMessage) {
   activeCwEntry = entry;
   clearCwHighlights();
   markActiveClue();
+  highlightCwEntry(entry);
 
+  if (shouldFocus) {
+    var focusInput = getFirstEmptyInputForEntry(entry) || getCwInput(entry.cells[0][0], entry.cells[0][1]);
+    if (focusInput) focusCwInput(focusInput);
+  }
+
+  if (showMessage) {
+    getEl("crosswordStatus").innerHTML = "Selected " + entry.number + " " + entry.direction + ". Type the answer continuously.";
+  }
+}
+
+function ensureActiveEntryForInput(input) {
+  if (!activeCwEntry || getActiveCellIndex(input) < 0) {
+    var found = findBestEntryForCell(input.getAttribute("data-row"), input.getAttribute("data-col"));
+    if (found) setActiveCwEntry(found, false, false);
+  }
+}
+
+function highlightCwEntry(entry) {
   for (var i = 0; i < entry.cells.length; i++) {
     var cell = getCwCell(entry.cells[i][0], entry.cells[i][1]);
     if (cell && cell.className.indexOf("active") < 0) {
       cell.className += " active";
     }
-  }
-
-  var focusInput = getFirstEmptyInputForEntry(entry);
-  if (!focusInput) {
-    focusInput = getCwInput(entry.cells[0][0], entry.cells[0][1]);
-  }
-
-  if (focusInput) {
-    focusInput.focus();
-    try {
-      focusInput.setSelectionRange(0, focusInput.value.length);
-    } catch (e) {}
-  }
-
-  if (showMessage !== false) {
-    getEl("crosswordStatus").innerHTML = "Selected " + number + " " + direction + ". Type the answer continuously.";
   }
 }
 
@@ -530,6 +1146,13 @@ function getCwInput(row, col) {
   return document.querySelector('.cw-input[data-row="' + row + '"][data-col="' + col + '"]');
 }
 
+function focusCwInput(input) {
+  input.focus();
+  try {
+    input.setSelectionRange(0, input.value.length);
+  } catch (e) {}
+}
+
 function getFirstEmptyInputForEntry(entry) {
   for (var i = 0; i < entry.cells.length; i++) {
     var input = getCwInput(entry.cells[i][0], entry.cells[i][1]);
@@ -561,6 +1184,31 @@ function getActiveCellIndex(input) {
   return -1;
 }
 
+function enterCwLetter(input, letter) {
+  input.value = letter.toUpperCase();
+  removeCellResultClasses(input.parentNode);
+  moveToNextCwCell(input);
+  checkCrossword(false);
+}
+
+function handleCwBackspace(input) {
+  removeCellResultClasses(input.parentNode);
+
+  if (input.value !== "") {
+    input.value = "";
+    checkCrossword(false);
+    return;
+  }
+
+  var previous = getPreviousCwInput(input);
+  if (previous) {
+    previous.value = "";
+    removeCellResultClasses(previous.parentNode);
+    focusCwInput(previous);
+    checkCrossword(false);
+  }
+}
+
 function moveToNextCwCell(input) {
   if (!activeCwEntry) return;
 
@@ -575,10 +1223,7 @@ function moveToNextCwCell(input) {
 
   var nextInput = getCwInput(nextCell[0], nextCell[1]);
   if (nextInput) {
-    nextInput.focus();
-    try {
-      nextInput.setSelectionRange(0, nextInput.value.length);
-    } catch (e) {}
+    focusCwInput(nextInput);
   }
 }
 
@@ -602,15 +1247,20 @@ function findBestEntryForCell(row, col) {
     }
   }
 
-  for (var i = 0; i < cwEntries.length; i++) {
-    for (var j = 0; j < cwEntries[i].cells.length; j++) {
-      if (cwEntries[i].cells[j][0] === row && cwEntries[i].cells[j][1] === col) {
-        return cwEntries[i];
+  var entries = currentCrossword().entries;
+  for (var i = 0; i < entries.length; i++) {
+    for (var j = 0; j < entries[i].cells.length; j++) {
+      if (entries[i].cells[j][0] === row && entries[i].cells[j][1] === col) {
+        return entries[i];
       }
     }
   }
 
   return null;
+}
+
+function removeCellResultClasses(cell) {
+  cell.className = cell.className.replace(" correct", "").replace(" wrong", "");
 }
 
 function hintSelectedClue() {
@@ -626,22 +1276,22 @@ function hintSelectedClue() {
   }
 
   input.value = input.getAttribute("data-answer");
-  input.parentNode.className = input.parentNode.className.replace(" wrong", "").replace(" correct", "");
+  removeCellResultClasses(input.parentNode);
   input.parentNode.className += " correct";
 
-  selectCwEntry(activeCwEntry.direction, activeCwEntry.number, false);
   var nextInput = getFirstNotCorrectInputForEntry(activeCwEntry);
-  if (nextInput) {
-    nextInput.focus();
-  }
+  if (nextInput) focusCwInput(nextInput);
+  clearCwHighlights();
+  markActiveClue();
+  highlightCwEntry(activeCwEntry);
 
   getEl("crosswordStatus").innerHTML = "Hint added for " + activeCwEntry.number + " " + activeCwEntry.direction + ".";
   checkCrossword(false);
 }
 
-function revealSelectedClue() {
+function revealSelectedWord() {
   if (!activeCwEntry) {
-    getEl("crosswordStatus").innerHTML = "Click a clue first, then use Reveal Selected Clue.";
+    getEl("crosswordStatus").innerHTML = "Click a clue first, then use Reveal Word.";
     return;
   }
 
@@ -649,14 +1299,20 @@ function revealSelectedClue() {
     var input = getCwInput(activeCwEntry.cells[i][0], activeCwEntry.cells[i][1]);
     if (input) {
       input.value = input.getAttribute("data-answer");
-      input.parentNode.className = input.parentNode.className.replace(" wrong", "").replace(" correct", "");
+      removeCellResultClasses(input.parentNode);
       input.parentNode.className += " correct";
     }
   }
 
-  selectCwEntry(activeCwEntry.direction, activeCwEntry.number, false);
+  clearCwHighlights();
+  markActiveClue();
+  highlightCwEntry(activeCwEntry);
   getEl("crosswordStatus").innerHTML = "Revealed " + activeCwEntry.number + " " + activeCwEntry.direction + ".";
   checkCrossword(false);
+}
+
+function revealSelectedClue() {
+  revealSelectedWord();
 }
 
 function revealPuzzle() {
@@ -919,7 +1575,6 @@ function renderDrawing() {
 
 /* Startup */
 function initApp() {
-
   renderCrossword(false);
   renderClues();
   resetMemory();
