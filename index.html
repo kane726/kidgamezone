@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kid Game Zone</title>
-<!-- Crossword update v4: generated validated layouts, unique shapes per session, continuous typing, reveal controls -->
+<!-- Crossword update v4 plus Memory update v2: reliable card state, rectangular layouts, match and guess tracking -->
 <style>
   :root {
     --purple: #6c63ff;
@@ -152,12 +152,30 @@
 
   #memoryBoard {
     display: grid;
-    grid-template-columns: repeat(5, minmax(50px, 1fr));
+    grid-template-columns: repeat(4, minmax(50px, 1fr));
     gap: 10px;
-    max-width: 650px;
+    width: 100%;
+    max-width: 520px;
     margin: 0 auto;
     position: relative;
     z-index: 1;
+  }
+
+  .memory-score {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin: -6px 0 14px;
+    font-weight: 900;
+    color: #455a64;
+  }
+
+  .memory-score span {
+    background: white;
+    border: 2px solid #dbe4e9;
+    border-radius: 999px;
+    padding: 7px 13px;
   }
 
   .memory-card {
@@ -440,6 +458,10 @@
       </div>
     </div>
     <div id="memoryStatus" class="status">Press Play to start.</div>
+    <div id="memoryScore" class="memory-score" aria-live="polite">
+      <span>Correct matches: <strong id="memoryMatchCount">0</strong></span>
+      <span>Guesses attempted: <strong id="memoryGuessCount">0</strong></span>
+    </div>
     <div class="memory-wrap">
       <div id="memoryBoard"></div>
       <div id="memoryCountdown" class="memory-countdown"><span id="memoryCountdownNumber">5</span></div>
@@ -575,14 +597,44 @@ var firstCard = null;
 var secondCard = null;
 var memoryLocked = false;
 var memoryMatches = 0;
+var memoryGuesses = 0;
 var memoryStarted = false;
 var memoryCountdownTimer = null;
+var memoryMismatchTimer = null;
+var memoryRoundId = 0;
+
+function getMemoryLayout(difficulty) {
+  if (difficulty === "easy") return { pairCount: 6, columns: 4, maxWidth: "520px" };
+  if (difficulty === "medium") return { pairCount: 8, columns: 4, maxWidth: "520px" };
+  return { pairCount: 10, columns: 5, maxWidth: "650px" };
+}
+
+function applyMemoryLayout(layout) {
+  var board = getEl("memoryBoard");
+  board.style.gridTemplateColumns = "repeat(" + layout.columns + ", minmax(50px, 1fr))";
+  board.style.maxWidth = layout.maxWidth;
+}
+
+function renderMemoryScore() {
+  getEl("memoryMatchCount").textContent = memoryMatches;
+  getEl("memoryGuessCount").textContent = memoryGuesses;
+}
+
+function clearMemoryMismatch() {
+  if (memoryMismatchTimer) {
+    clearTimeout(memoryMismatchTimer);
+    memoryMismatchTimer = null;
+  }
+}
 
 function startMemory() {
   clearMemoryCountdown();
+  clearMemoryMismatch();
+  memoryRoundId++;
+
   var difficulty = getEl("memoryDifficulty").value;
-  var pairCount = difficulty === "easy" ? 6 : difficulty === "medium" ? 8 : 10;
-  var chosen = memoryEmojis.slice(0, pairCount);
+  var layout = getMemoryLayout(difficulty);
+  var chosen = memoryEmojis.slice(0, layout.pairCount);
   var doubled = [];
 
   for (var i = 0; i < chosen.length; i++) {
@@ -595,7 +647,10 @@ function startMemory() {
   secondCard = null;
   memoryLocked = false;
   memoryMatches = 0;
+  memoryGuesses = 0;
   memoryStarted = true;
+  applyMemoryLayout(layout);
+  renderMemoryScore();
   renderMemory();
 
   if (difficulty === "easy" || difficulty === "medium") {
@@ -604,19 +659,24 @@ function startMemory() {
   } else {
     hideAllUnmatchedMemoryCards();
     getEl("memoryStatus").innerHTML = "Hard mode: find the matching pairs.";
+    renderMemory();
   }
 }
 
 function resetMemory() {
   clearMemoryCountdown();
+  clearMemoryMismatch();
+  memoryRoundId++;
   memoryCards = [];
   firstCard = null;
   secondCard = null;
   memoryLocked = false;
   memoryMatches = 0;
+  memoryGuesses = 0;
   memoryStarted = false;
   getEl("memoryStatus").innerHTML = "Press Play to start.";
   getEl("memoryBoard").innerHTML = "";
+  renderMemoryScore();
 }
 
 function showMemoryPeek(seconds) {
@@ -633,11 +693,19 @@ function showMemoryPeek(seconds) {
   getEl("memoryStatus").innerHTML = "Look carefully. The cards will hide when the countdown ends.";
 
   var remaining = seconds;
+  var roundAtStart = memoryRoundId;
   memoryCountdownTimer = setInterval(function() {
+    if (roundAtStart !== memoryRoundId) {
+      clearMemoryCountdown();
+      return;
+    }
+
     remaining--;
     if (remaining <= 0) {
       clearMemoryCountdown();
       hideAllUnmatchedMemoryCards();
+      firstCard = null;
+      secondCard = null;
       memoryLocked = false;
       getEl("memoryStatus").innerHTML = "Now find the matching pairs.";
       renderMemory();
@@ -682,9 +750,7 @@ function renderMemory() {
       btn.innerHTML = "?";
     }
 
-    if (memoryLocked || card.matched || card.showing) {
-      btn.disabled = card.matched || memoryLocked;
-    }
+    btn.disabled = memoryLocked || card.matched || card.showing;
 
     btn.onclick = function() {
       flipMemoryCard(parseInt(this.getAttribute("data-index"), 10));
@@ -702,36 +768,55 @@ function flipMemoryCard(index) {
 
   card.showing = true;
 
-  if (!firstCard) {
+  if (firstCard === null) {
     firstCard = index;
+    secondCard = null;
     getEl("memoryStatus").innerHTML = "Pick one more card.";
     renderMemory();
     return;
   }
 
+  if (index === firstCard) return;
+
   secondCard = index;
+  memoryGuesses++;
   memoryLocked = true;
+  renderMemoryScore();
   renderMemory();
 
-  if (memoryCards[firstCard].emoji === memoryCards[secondCard].emoji) {
-    memoryCards[firstCard].matched = true;
-    memoryCards[secondCard].matched = true;
+  var firstIndex = firstCard;
+  var secondIndex = secondCard;
+
+  if (memoryCards[firstIndex].emoji === memoryCards[secondIndex].emoji) {
+    memoryCards[firstIndex].matched = true;
+    memoryCards[secondIndex].matched = true;
     memoryMatches++;
     firstCard = null;
     secondCard = null;
     memoryLocked = false;
+    renderMemoryScore();
 
     if (memoryMatches === memoryCards.length / 2) {
-      getEl("memoryStatus").innerHTML = "🎉 You found every match!";
+      getEl("memoryStatus").innerHTML = "🎉 You found every match in " + memoryGuesses + " guesses!";
     } else {
       getEl("memoryStatus").innerHTML = "Match! Keep going.";
     }
     renderMemory();
   } else {
     getEl("memoryStatus").innerHTML = "Not a match. Try again.";
-    setTimeout(function() {
-      memoryCards[firstCard].showing = false;
-      memoryCards[secondCard].showing = false;
+    var roundAtGuess = memoryRoundId;
+
+    memoryMismatchTimer = setTimeout(function() {
+      memoryMismatchTimer = null;
+      if (roundAtGuess !== memoryRoundId) return;
+
+      if (memoryCards[firstIndex] && !memoryCards[firstIndex].matched) {
+        memoryCards[firstIndex].showing = false;
+      }
+      if (memoryCards[secondIndex] && !memoryCards[secondIndex].matched) {
+        memoryCards[secondIndex].showing = false;
+      }
+
       firstCard = null;
       secondCard = null;
       memoryLocked = false;
