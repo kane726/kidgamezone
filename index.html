@@ -313,6 +313,19 @@
     cursor: not-allowed;
   }
 
+  /* Brooke's wider crossword layouts use smaller text so letters and clue numbers stay inside each square. */
+  #crosswordBoard.brooke-compact .cw-input {
+    font-size: clamp(0.52rem, 2.2vw, 0.95rem);
+    line-height: 1;
+    padding-top: 7px;
+  }
+
+  #crosswordBoard.brooke-compact .num {
+    top: 1px;
+    left: 2px;
+    font-size: 0.52rem;
+  }
+
   .clues {
     display: grid;
     grid-template-columns: repeat(2, minmax(220px, 1fr));
@@ -2414,6 +2427,9 @@ function renderCrossword(enabled) {
   if (!puzzle) return;
 
   board.style.gridTemplateColumns = "repeat(" + puzzle.cols + ", minmax(0, 1fr))";
+
+  var useBrookeCompactSizing = currentPlayer && currentPlayer.key === "brooke" && puzzle.cols >= 11;
+  board.className = useBrookeCompactSizing ? "brooke-compact" : "";
 
   for (var r = 0; r < puzzle.rows.length; r++) {
     for (var c = 0; c < puzzle.rows[r].length; c++) {
