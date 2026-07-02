@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cora & Brooke Game Zone</title>
-<!-- Player dashboard with seven grade-adjusted games for Cora (3rd grade) and Brooke (2nd grade) -->
+<title>Cora, Brooke &amp; Ava Game Zone</title>
+<!-- Player dashboard with seven grade-adjusted games for Cora (3rd grade), Brooke (2nd grade), and Ava (3rd grade) -->
 <style>
   :root {
     --purple: #6c63ff;
@@ -452,6 +452,8 @@
     --brooke-soft: #e9f8f2;
     --cora: #7656d6;
     --cora-soft: #f0ebff;
+    --ava: #d59632;
+    --ava-soft: #fff4dc;
   }
 
   body {
@@ -513,7 +515,7 @@
   .player-grid,
   .game-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 18px;
     width: 100%;
     max-width: 850px;
@@ -552,8 +554,10 @@
 
   .player-card.cora { background: linear-gradient(145deg, white, var(--cora-soft)); }
   .player-card.brooke { background: linear-gradient(145deg, white, var(--brooke-soft)); }
+  .player-card.ava { background: linear-gradient(145deg, white, var(--ava-soft)); }
   .player-card.cora:hover, .player-card.cora:focus-visible { border-color: #b8a8ee; }
   .player-card.brooke:hover, .player-card.brooke:focus-visible { border-color: #8fd8bf; }
+  .player-card.ava:hover, .player-card.ava:focus-visible { border-color: #e7b45d; }
 
   .player-name {
     display: block;
@@ -746,7 +750,7 @@
 
   .stats-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 18px;
   }
 
@@ -982,7 +986,7 @@
     <div class="dashboard-shell">
       <div class="brand-block">
         <div class="brand-mark" aria-hidden="true">★</div>
-        <h1>Cora &amp; Brooke Game Zone</h1>
+        <h1>Cora, Brooke &amp; Ava Game Zone</h1>
         <p>Choose your name to start playing.</p>
       </div>
 
@@ -1001,6 +1005,14 @@
             <span class="player-grade">3rd Grade</span>
           </span>
           <span class="player-animal" aria-hidden="true">🐱</span>
+        </button>
+
+        <button type="button" class="player-card ava" onclick="selectPlayer('ava')">
+          <span>
+            <span class="player-name">Ava</span>
+            <span class="player-grade">3rd Grade</span>
+          </span>
+          <span class="player-animal" aria-hidden="true" title="Golden retriever">🐕</span>
         </button>
       </div>
 
@@ -1103,6 +1115,14 @@
           <div><h2>Brooke</h2><p>2nd Grade</p></div>
         </div>
         <div class="stats-placeholder">Brooke's game stats will be added here.</div>
+      </section>
+
+      <section class="stats-card">
+        <div class="stats-card-header">
+          <div class="stats-animal" aria-hidden="true" title="Golden retriever">🐕</div>
+          <div><h2>Ava</h2><p>3rd Grade</p></div>
+        </div>
+        <div class="stats-placeholder">Ava's game stats will be added here.</div>
       </section>
     </div>
   </main>
@@ -1368,6 +1388,13 @@ var playerProfiles = {
     grade: "2nd Grade",
     difficulty: "medium",
     animal: "🐨"
+  },
+  ava: {
+    key: "ava",
+    name: "Ava",
+    grade: "3rd Grade",
+    difficulty: "hard",
+    animal: "🐕"
   }
 };
 
