@@ -381,21 +381,27 @@
   .hidden-part { display: none; }
 
   #wordDisplay {
+    --hangman-letter-count: 1;
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-wrap: nowrap;
+    gap: clamp(3px, 1vw, 8px);
     align-items: center;
     min-height: 62px;
     margin-bottom: 16px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .slot {
-    width: 44px;
-    height: 52px;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 44px;
+    height: clamp(40px, 8vw, 52px);
     display: grid;
     place-items: center;
-    border-bottom: 5px solid var(--purple);
-    font-size: 2rem;
+    border-bottom: clamp(3px, .8vw, 5px) solid var(--purple);
+    font-size: clamp(1rem, calc((100vw - 96px) / var(--hangman-letter-count) * .6), 2rem);
     font-weight: 900;
     background: #f8f9fa;
     border-radius: 10px 10px 0 0;
@@ -2986,6 +2992,8 @@ function renderHangman() {
 function renderWord() {
   var display = getEl("wordDisplay");
   display.innerHTML = "";
+  var letterCount = currentWord.replace(/[^A-Z]/g, "").length || 1;
+  display.style.setProperty("--hangman-letter-count", letterCount);
 
   if (currentWord === "") {
     var blank = document.createElement("div");
